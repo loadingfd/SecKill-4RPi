@@ -1,0 +1,13 @@
+services:
+  seckill:
+    image: seckill-app:latest
+    container_name: ${INSTANCE_NAME:-seckill-node}
+    hostname: ${INSTANCE_NAME:-seckill-node}
+    restart: always
+    ports:
+      - "${HOST_PORT:-18081}:8080"
+    environment:
+      - PC_HOST=${PC_HOST:-192.168.137.1}
+      - SERVER_PORT=8080
+      - NACOS_GROUP=${NACOS_GROUP:-SECKILL_GROUP}
+      - NACOS_NAMESPACE=${NACOS_NAMESPACE:-}

@@ -1,0 +1,81 @@
+
+services:
+  # 服务发现中心：Nacos (单机模式)
+  nacos:
+    image: nacos/nacos-server:latest
+    container_name: nacos-standalone
+    environment:
+      - PREFER_HOST_MODE=hostname
+      - MODE=standalone
+      - NACOS_AUTH_IDENTITY_KEY=serverIdentity
+      - NACOS_AUTH_IDENTITY_VALUE=security
+      - NACOS_AUTH_TOKEN=VGhpc0lzTXlDdXN0b21TZWNyZXRLZXkwMTIzNDU2Nzg=
+    volumes:
+      - ./standalone-logs/:/home/nacos/logs
+    ports:
+      - "8880:8080"
+      - "8848:8848"
+      - "9848:9848"
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus/prometheus-standalone.yaml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      - nacos
+    restart: on-failure
+  grafana:
+    container_name: grafana
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    restart: on-failure
+
+  # 缓存与原子扣减：Redis
+  redis:
+    image: redis:7.0-alpine
+    container_name: redis-seckill
+    command: redis-server --requirepass cbksb
+    ports:
+      - "6379:6379"
+    restart: always
+
+  # 异步解耦：RabbitMQ
+  rabbitmq:
+    image: rabbitmq:4.2.4-management-alpine
+    container_name: rabbitmq-seckill
+    environment:
+      - RABBITMQ_DEFAULT_USER=cbk
+      - RABBITMQ_DEFAULT_PASS=cbksb6677
+    ports:
+      - "5672:5672"   # 消息收发端口
+      - "15672:15672" # 管理后台端口 (浏览器访问)
+    restart: always
+
+  # 最终入库：PostgreSQL
+  postgres:
+    image: postgres:15.17-trixie
+    container_name: postgres-seckill
+    environment:
+      - POSTGRES_USER=cbk
+      - POSTGRES_PASSWORD=cbksb6677
+      - POSTGRES_DB=seckill_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    restart: always
+
+  # 入口网关：Nginx
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-lb
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - nacos
+    restart: always

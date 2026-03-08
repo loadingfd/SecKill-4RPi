@@ -1,0 +1,11 @@
+# IntelliJ project files
+.idea
+*.iml
+out
+gen
+
+# Docker persist data
+PC/pgdata
+PC/prometheus
+PC/standalone-logs
+PC/nginx.conf

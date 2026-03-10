@@ -40,7 +40,7 @@ public class SeckillService {
         String requestId = UUID.randomUUID().toString().replace("-", "");
         SeckillOrderMessage message = new SeckillOrderMessage(requestId, userId, goodsId, LocalDateTime.now());
         try {
-            outboxPublisherService.saveAndPublish(message);
+            outboxPublisherService.publish(message);
             return new SeckillSubmitResult(true, requestId, "accepted");
         } catch (RuntimeException ex) {
             redisStockService.rollbackReservation(goodsId, userId);
@@ -57,4 +57,3 @@ public class SeckillService {
         redisStockService.initStock(goodsId, stock);
     }
 }
-

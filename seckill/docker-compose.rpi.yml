@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - JAR_PATH=target/seckill-0.0.1-SNAPSHOT.jar
+    image: seckill:latest
+    platform: ${DOCKER_PLATFORM:-linux/arm64}
+    # Use host networking so the container can access services already running on the Pi (Postgres/Redis/RabbitMQ)
+    network_mode: host
+    environment:
+      PC_HOST: ${PC_HOST:-localhost}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:-cbk}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cbksb6677}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-cbksb}
+      RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
+      RABBITMQ_USER: ${RABBITMQ_USER:-cbk}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-cbksb6677}
+      SERVER_PORT: ${SERVER_PORT:-8080}
+    restart: unless-stopped

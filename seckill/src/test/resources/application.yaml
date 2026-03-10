@@ -19,7 +19,9 @@ spring:
     nacos:
       discovery:
         enabled: false
+  threads:
+    virtual:
+      enabled: ${SPRING_THREADS_VIRTUAL_ENABLED:true}
 management:
   endpoints:
     enabled-by-default: false
-

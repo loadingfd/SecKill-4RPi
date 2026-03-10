@@ -2,7 +2,7 @@ spring:
   application:
     name: seckill
   datasource:
-    url: jdbc:postgresql://${PC_HOST:192.168.137.1}:${POSTGRES_PORT:5432}/seckill_db
+    url: jdbc:postgresql://${PC_HOST:localhost}:${POSTGRES_PORT:5432}/seckill_db
     username: ${POSTGRES_USER:cbk}
     password: ${POSTGRES_PASSWORD:cbksb6677}
     hikari:
@@ -20,12 +20,12 @@ spring:
         order_updates: true
   data:
     redis:
-      host: ${PC_HOST:192.168.137.1}
+      host: ${PC_HOST:localhost}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:cbksb}
       timeout: 3000ms
   rabbitmq:
-    host: ${PC_HOST:192.168.137.1}
+    host: ${PC_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:cbk}
     password: ${RABBITMQ_PASSWORD:cbksb6677}
@@ -36,18 +36,20 @@ spring:
     listener:
       simple:
         acknowledge-mode: manual
-        prefetch: 50
+        prefetch: ${SECKILL_CONSUMER_PREFETCH:100}
         default-requeue-rejected: false
   cloud:
     nacos:
       discovery:
-        server-addr: ${PC_HOST:192.168.137.1}:${NACOS_PORT:8848}
+        server-addr: ${PC_HOST:localhost}:${NACOS_PORT:8848}
         group: ${NACOS_GROUP:SECKILL_GROUP}
         namespace: ${NACOS_NAMESPACE:}
         username: ${NACOS_USERNAME:nacos}
         password: ${NACOS_PASSWORD:nacos}
         ip: ${INSTANCE_IP:}
-        instance-id: ${INSTANCE_ID:${HOSTNAME:unknown}-${server.port}}
+  threads:
+    virtual:
+      enabled: ${SPRING_THREADS_VIRTUAL_ENABLED:true}
 
 server:
   port: ${SERVER_PORT:8080}
@@ -59,7 +61,11 @@ authority:
 seckill:
   stock-key-prefix: "seckill:stock:"
   user-key-prefix: "seckill:users:"
-  outbox-max-retry: 20
+  publisher:
+    max-attempts: ${SECKILL_PUBLISH_MAX_ATTEMPTS:3}
+    base-delay-ms: ${SECKILL_PUBLISH_BASE_DELAY_MS:200}
+  consumer:
+    order-concurrency: ${SECKILL_ORDER_CONCURRENCY:8-16}
 
 management:
   endpoints:

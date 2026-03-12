@@ -13,3 +13,4 @@ public interface SeckillGoodsRepository extends JpaRepository<SeckillGoods, Long
     int deductOne(@Param("goodsId") Long goodsId);
 }
 
+

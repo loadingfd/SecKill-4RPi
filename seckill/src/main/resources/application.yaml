@@ -6,8 +6,8 @@ spring:
     username: ${POSTGRES_USER:cbk}
     password: ${POSTGRES_PASSWORD:cbksb6677}
     hikari:
-      maximum-pool-size: 40
-      minimum-idle: 10
+      maximum-pool-size: ${DB_MAX_POOL_SIZE:8}
+      minimum-idle: ${DB_MIN_IDLE:2}
   jpa:
     hibernate:
       ddl-auto: update
@@ -15,15 +15,18 @@ spring:
     properties:
       hibernate:
         jdbc:
-          batch_size: 50
+          batch_size: ${JPA_BATCH_SIZE:20}
         order_inserts: true
         order_updates: true
+  sql:
+    init:
+      mode: never
   data:
     redis:
       host: ${PC_HOST:localhost}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:cbksb}
-      timeout: 3000ms
+      timeout: ${REDIS_TIMEOUT:3000ms}
   rabbitmq:
     host: ${PC_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
@@ -31,16 +34,16 @@ spring:
     password: ${RABBITMQ_PASSWORD:cbksb6677}
     publisher-confirm-type: correlated
     publisher-returns: true
-    template:
-      mandatory: true
     listener:
       simple:
         acknowledge-mode: manual
-        prefetch: ${SECKILL_CONSUMER_PREFETCH:100}
+        prefetch: ${SECKILL_CONSUMER_PREFETCH:8}
         default-requeue-rejected: false
+
   cloud:
     nacos:
       discovery:
+        enabled: ${NACOS_DISCOVERY_ENABLED:false}
         server-addr: ${PC_HOST:localhost}:${NACOS_PORT:8848}
         group: ${NACOS_GROUP:SECKILL_GROUP}
         namespace: ${NACOS_NAMESPACE:}
@@ -49,14 +52,17 @@ spring:
         ip: ${INSTANCE_IP:}
   threads:
     virtual:
-      enabled: ${SPRING_THREADS_VIRTUAL_ENABLED:true}
+      enabled: ${SPRING_THREADS_VIRTUAL_ENABLED:false}
 
 server:
   port: ${SERVER_PORT:8080}
+  tomcat:
+    threads:
+      max: ${TOMCAT_MAX_THREADS:48}
+      min-spare: ${TOMCAT_MIN_SPARE_THREADS:2}
+    accept-count: ${TOMCAT_ACCEPT_COUNT:20}
+    connection-timeout: ${TOMCAT_CONNECTION_TIMEOUT:5000}
 
-authority:
-  limiter:
-    qps: ${SECKILL_QPS:3000}
 
 seckill:
   stock-key-prefix: "seckill:stock:"
@@ -65,13 +71,14 @@ seckill:
     max-attempts: ${SECKILL_PUBLISH_MAX_ATTEMPTS:3}
     base-delay-ms: ${SECKILL_PUBLISH_BASE_DELAY_MS:200}
   consumer:
-    order-concurrency: ${SECKILL_ORDER_CONCURRENCY:8-16}
+    order-concurrency: ${SECKILL_ORDER_CONCURRENCY:2-4}
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus,metrics
+        include: health,info,metrics
   endpoint:
     health:
       show-details: always
+

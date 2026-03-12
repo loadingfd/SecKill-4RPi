@@ -27,14 +27,20 @@ public class RedisStockService {
     private final DefaultRedisScript<Long> preDeductLua;
     private final String stockKeyPrefix;
     private final String userKeyPrefix;
+    private final String orderConsumeKeyPrefix;
+    private final Duration orderConsumeTtl;
 
     public RedisStockService(
             StringRedisTemplate redisTemplate,
             @Value("${seckill.stock-key-prefix:seckill:stock:}") String stockKeyPrefix,
-            @Value("${seckill.user-key-prefix:seckill:users:}") String userKeyPrefix) {
+            @Value("${seckill.user-key-prefix:seckill:users:}") String userKeyPrefix,
+            @Value("${seckill.order-consume-key-prefix:seckill:order:consume:}") String orderConsumeKeyPrefix,
+            @Value("${seckill.order-consume-ttl-hours:24}") long orderConsumeTtlHours) {
         this.redisTemplate = redisTemplate;
         this.stockKeyPrefix = stockKeyPrefix;
         this.userKeyPrefix = userKeyPrefix;
+        this.orderConsumeKeyPrefix = orderConsumeKeyPrefix;
+        this.orderConsumeTtl = Duration.ofHours(orderConsumeTtlHours);
         this.preDeductLua = new DefaultRedisScript<>(PRE_DEDUCT_SCRIPT, Long.class);
     }
 
@@ -44,6 +50,15 @@ public class RedisStockService {
                 List.of(stockKey(goodsId), userSetKey(goodsId)),
                 String.valueOf(userId));
         return result == null ? -99L : result;
+    }
+
+    public boolean markOrderConsuming(String requestId) {
+        Boolean result = redisTemplate.opsForValue().setIfAbsent(orderConsumeKey(requestId), "1", orderConsumeTtl);
+        return Boolean.TRUE.equals(result);
+    }
+
+    public void clearOrderConsuming(String requestId) {
+        redisTemplate.delete(orderConsumeKey(requestId));
     }
 
     public void rollbackReservation(Long goodsId, Long userId) {
@@ -62,5 +77,9 @@ public class RedisStockService {
 
     private String userSetKey(Long goodsId) {
         return userKeyPrefix + goodsId;
+    }
+
+    private String orderConsumeKey(String requestId) {
+        return orderConsumeKeyPrefix + requestId;
     }
 }

@@ -19,5 +19,8 @@ public class SeckillGoods {
 
     @Column(nullable = false)
     private Integer stock;
+
+    @Column(name = "per_user_limit", nullable = false)
+    private Integer perUserLimit;
 }
 

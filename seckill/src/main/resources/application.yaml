@@ -1,6 +1,10 @@
 spring:
   application:
     name: seckill
+
+  profiles:
+    active: dev
+
   datasource:
     url: jdbc:postgresql://${PC_HOST:localhost}:${POSTGRES_PORT:5432}/seckill_db
     username: ${POSTGRES_USER:cbk}
@@ -8,6 +12,7 @@ spring:
     hikari:
       maximum-pool-size: ${DB_MAX_POOL_SIZE:8}
       minimum-idle: ${DB_MIN_IDLE:2}
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -27,6 +32,7 @@ spring:
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:cbksb}
       timeout: ${REDIS_TIMEOUT:3000ms}
+
   rabbitmq:
     host: ${PC_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
@@ -37,19 +43,31 @@ spring:
     listener:
       simple:
         acknowledge-mode: manual
-        prefetch: ${SECKILL_CONSUMER_PREFETCH:8}
+        prefetch: ${SECKILL_CONSUMER_PREFETCH:50}
         default-requeue-rejected: false
+        concurrency: 4
+
 
   cloud:
     nacos:
       discovery:
-        enabled: ${NACOS_DISCOVERY_ENABLED:false}
+        enabled: ${NACOS_DISCOVERY_ENABLED:true}
         server-addr: ${PC_HOST:localhost}:${NACOS_PORT:8848}
         group: ${NACOS_GROUP:SECKILL_GROUP}
-        namespace: ${NACOS_NAMESPACE:}
+        namespace: ${NACOS_NAMESPACE:RPI}
         username: ${NACOS_USERNAME:nacos}
-        password: ${NACOS_PASSWORD:nacos}
+        password: ${NACOS_PASSWORD:cbksb6677}
         ip: ${INSTANCE_IP:}
+      config:
+        server-addr: ${PC_HOST:localhost}:${NACOS_PORT:8848}
+        file-extension: yaml
+        group: ${NACOS_GROUP:SECKILL_GROUP}
+        namespace: ${NACOS_NAMESPACE:RPI}
+        refresh-enabled: true
+
+  config:
+    import: nacos:${spring.application.name}
+
   threads:
     virtual:
       enabled: ${SPRING_THREADS_VIRTUAL_ENABLED:false}
@@ -66,7 +84,8 @@ server:
 
 seckill:
   stock-key-prefix: "seckill:stock:"
-  user-key-prefix: "seckill:users:"
+  user-count-key-prefix: "seckill:user:count:"
+  user-limit-key-prefix: "seckill:user:limit:"
   publisher:
     max-attempts: ${SECKILL_PUBLISH_MAX_ATTEMPTS:3}
     base-delay-ms: ${SECKILL_PUBLISH_BASE_DELAY_MS:200}
@@ -77,8 +96,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,refresh
   endpoint:
     health:
       show-details: always
-

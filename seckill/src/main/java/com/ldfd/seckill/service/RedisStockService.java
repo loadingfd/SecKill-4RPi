@@ -15,41 +15,56 @@ public class RedisStockService {
             if stock <= 0 then
               return -1
             end
-            if redis.call('SISMEMBER', KEYS[2], ARGV[1]) == 1 then
+            local limit = tonumber(redis.call('GET', KEYS[3]) or '1')
+            local bought = tonumber(redis.call('HGET', KEYS[2], ARGV[1]) or '0')
+            if bought >= limit then
               return -2
             end
             redis.call('DECR', KEYS[1])
-            redis.call('SADD', KEYS[2], ARGV[1])
+            redis.call('HINCRBY', KEYS[2], ARGV[1], 1)
+            return 1
+            """;
+
+    private static final String ROLLBACK_SCRIPT = """
+            redis.call('INCR', KEYS[1])
+            local bought = tonumber(redis.call('HINCRBY', KEYS[2], ARGV[1], -1) or '0')
+            if bought <= 0 then
+              redis.call('HDEL', KEYS[2], ARGV[1])
+            end
             return 1
             """;
 
     private final StringRedisTemplate redisTemplate;
     private final DefaultRedisScript<Long> preDeductLua;
+    private final DefaultRedisScript<Long> rollbackLua;
     private final String stockKeyPrefix;
-    private final String userKeyPrefix;
+    private final String userCountKeyPrefix;
+    private final String userLimitKeyPrefix;
     private final String orderConsumeKeyPrefix;
     private final Duration orderConsumeTtl;
 
     public RedisStockService(
             StringRedisTemplate redisTemplate,
             @Value("${seckill.stock-key-prefix:seckill:stock:}") String stockKeyPrefix,
-            @Value("${seckill.user-key-prefix:seckill:users:}") String userKeyPrefix,
+            @Value("${seckill.user-count-key-prefix:seckill:user:count:}") String userCountKeyPrefix,
+            @Value("${seckill.user-limit-key-prefix:seckill:user:limit:}") String userLimitKeyPrefix,
             @Value("${seckill.order-consume-key-prefix:seckill:order:consume:}") String orderConsumeKeyPrefix,
             @Value("${seckill.order-consume-ttl-hours:24}") long orderConsumeTtlHours) {
         this.redisTemplate = redisTemplate;
         this.stockKeyPrefix = stockKeyPrefix;
-        this.userKeyPrefix = userKeyPrefix;
+        this.userCountKeyPrefix = userCountKeyPrefix;
+        this.userLimitKeyPrefix = userLimitKeyPrefix;
         this.orderConsumeKeyPrefix = orderConsumeKeyPrefix;
         this.orderConsumeTtl = Duration.ofHours(orderConsumeTtlHours);
         this.preDeductLua = new DefaultRedisScript<>(PRE_DEDUCT_SCRIPT, Long.class);
+        this.rollbackLua = new DefaultRedisScript<>(ROLLBACK_SCRIPT, Long.class);
     }
 
     public long preDeduct(Long goodsId, Long userId) {
-        Long result = redisTemplate.execute(
+        return redisTemplate.execute(
                 preDeductLua,
-                List.of(stockKey(goodsId), userSetKey(goodsId)),
+                List.of(stockKey(goodsId), userCountKey(goodsId), userLimitKey(goodsId)),
                 String.valueOf(userId));
-        return result == null ? -99L : result;
     }
 
     public boolean markOrderConsuming(String requestId) {
@@ -62,21 +77,28 @@ public class RedisStockService {
     }
 
     public void rollbackReservation(Long goodsId, Long userId) {
-        redisTemplate.opsForValue().increment(stockKey(goodsId));
-        redisTemplate.opsForSet().remove(userSetKey(goodsId), String.valueOf(userId));
+        redisTemplate.execute(
+                rollbackLua,
+                List.of(stockKey(goodsId), userCountKey(goodsId)),
+                String.valueOf(userId));
     }
 
-    public void initStock(Long goodsId, int stock) {
+    public void initStock(Long goodsId, int stock, int perUserLimit) {
         redisTemplate.opsForValue().set(stockKey(goodsId), String.valueOf(stock));
-        redisTemplate.expire(userSetKey(goodsId), Duration.ofHours(24));
+        redisTemplate.opsForValue().set(userLimitKey(goodsId), String.valueOf(perUserLimit));
+        redisTemplate.delete(userCountKey(goodsId));
     }
 
     private String stockKey(Long goodsId) {
         return stockKeyPrefix + goodsId;
     }
 
-    private String userSetKey(Long goodsId) {
-        return userKeyPrefix + goodsId;
+    private String userCountKey(Long goodsId) {
+        return userCountKeyPrefix + goodsId;
+    }
+
+    private String userLimitKey(Long goodsId) {
+        return userLimitKeyPrefix + goodsId;
     }
 
     private String orderConsumeKey(String requestId) {

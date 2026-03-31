@@ -15,8 +15,7 @@ import lombok.Setter;
 @Setter
 @Entity
 @Table(name = "seckill_order", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_order_request_id", columnNames = "request_id"),
-        @UniqueConstraint(name = "uk_order_user_goods", columnNames = {"user_id", "goods_id"})
+        @UniqueConstraint(name = "uk_order_request_id", columnNames = "request_id")
 })
 public class SeckillOrder {
 

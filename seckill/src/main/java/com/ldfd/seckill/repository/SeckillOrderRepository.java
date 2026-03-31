@@ -8,7 +8,7 @@ public interface SeckillOrderRepository extends JpaRepository<SeckillOrder, Long
 
     boolean existsByRequestId(String requestId);
 
-    boolean existsByUserIdAndGoodsId(Long userId, Long goodsId);
+    long countByUserIdAndGoodsId(Long userId, Long goodsId);
 
     Optional<SeckillOrder> findByRequestId(String requestId);
 }

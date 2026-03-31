@@ -31,7 +31,7 @@ public class SeckillService {
             return new SeckillSubmitResult(false, null, "sold out");
         }
         if (result == -2L) {
-            return new SeckillSubmitResult(false, null, "duplicate request");
+            return new SeckillSubmitResult(false, null, "exceed per-user limit");
         }
         if (result != 1L) {
             return new SeckillSubmitResult(false, null, "busy, please retry");
@@ -49,11 +49,15 @@ public class SeckillService {
     }
 
     @Transactional
-    public void initGoodsStock(Long goodsId, Integer stock) {
-        SeckillGoods goods = seckillGoodsRepository.findById(goodsId).orElseGet(SeckillGoods::new);
+    public void initGoodsStock(Long goodsId, Integer stock, Integer perUserLimit) {
+        if (seckillGoodsRepository.existsById(goodsId)) {
+            throw new IllegalStateException("activity already initialized; only new goodsId can use new limit");
+        }
+        SeckillGoods goods = new SeckillGoods();
         goods.setGoodsId(goodsId);
         goods.setStock(stock);
+        goods.setPerUserLimit(perUserLimit);
         seckillGoodsRepository.save(goods);
-        redisStockService.initStock(goodsId, stock);
+        redisStockService.initStock(goodsId, stock, perUserLimit);
     }
 }

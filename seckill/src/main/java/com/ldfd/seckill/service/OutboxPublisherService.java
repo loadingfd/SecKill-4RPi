@@ -23,9 +23,9 @@ public class OutboxPublisherService {
 
     @Retryable(
             retryFor = AmqpException.class,
-            maxAttemptsExpression = "${seckill.publisher.max-attempts:3}",
+            maxAttemptsExpression = "${seckill.publisher.max-attempts}",
             backoff = @Backoff(
-                    delayExpression = "${seckill.publisher.base-delay-ms:200}",
+                    delayExpression = "${seckill.publisher.base-delay-ms}",
                     multiplier = 2.0
             )
     )

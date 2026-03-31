@@ -36,9 +36,16 @@ public class SeckillController {
     @PostMapping("/admin/goods/{goodsId}/stock/{stock}")
     public ApiResponse<String> initStock(
             @PathVariable @Min(1) Long goodsId,
-            @PathVariable @Min(1) Integer stock) {
-        seckillService.initGoodsStock(goodsId, stock);
-        return ApiResponse.ok("stock initialized", "goodsId=" + goodsId + ", stock=" + stock);
+            @PathVariable @Min(1) Integer stock,
+            @RequestParam(defaultValue = "1") @Min(1) Integer perUserLimit) {
+        try {
+            seckillService.initGoodsStock(goodsId, stock, perUserLimit);
+            return ApiResponse.ok(
+                    "stock initialized",
+                    "goodsId=" + goodsId + ", stock=" + stock + ", perUserLimit=" + perUserLimit);
+        } catch (IllegalStateException ex) {
+            return ApiResponse.fail(ex.getMessage());
+        }
     }
 }
 

@@ -46,8 +46,7 @@ public class OrderConsumerService {
         }
 
         try {
-            if (seckillOrderMapper.countByRequestId(message.requestId()) > 0
-                    || seckillOrderMapper.countByUserIdAndGoodsId(message.userId(), message.goodsId()) > 0) {
+            if (seckillOrderMapper.countByRequestId(message.requestId()) > 0) {
                 channel.basicAck(tag, false);
                 return;
             }

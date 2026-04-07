@@ -1,6 +1,7 @@
 package com.ldfd.seckill.service;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -9,6 +10,8 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class RedisStockService {
+
+    private static final int USER_COUNT_BUCKETS = 32;
 
     private static final String PRE_DEDUCT_SCRIPT = """
             local stock = tonumber(redis.call('GET', KEYS[1]) or '-1')
@@ -63,7 +66,7 @@ public class RedisStockService {
     public long preDeduct(Long goodsId, Long userId) {
         return redisTemplate.execute(
                 preDeductLua,
-                List.of(stockKey(goodsId), userCountKey(goodsId), userLimitKey(goodsId)),
+                List.of(stockKey(goodsId), userCountBucketKey(goodsId, userId), userLimitKey(goodsId)),
                 String.valueOf(userId));
     }
 
@@ -79,22 +82,30 @@ public class RedisStockService {
     public void rollbackReservation(Long goodsId, Long userId) {
         redisTemplate.execute(
                 rollbackLua,
-                List.of(stockKey(goodsId), userCountKey(goodsId)),
+                List.of(stockKey(goodsId), userCountBucketKey(goodsId, userId)),
                 String.valueOf(userId));
     }
 
     public void initStock(Long goodsId, int stock, int perUserLimit) {
         redisTemplate.opsForValue().set(stockKey(goodsId), String.valueOf(stock));
         redisTemplate.opsForValue().set(userLimitKey(goodsId), String.valueOf(perUserLimit));
-        redisTemplate.delete(userCountKey(goodsId));
+        List<String> bucketKeys = new ArrayList<>(USER_COUNT_BUCKETS);
+        for (int bucket = 0; bucket < USER_COUNT_BUCKETS; bucket++) {
+            bucketKeys.add(userCountBucketKey(goodsId, bucket));
+        }
+        redisTemplate.delete(bucketKeys);
     }
 
     private String stockKey(Long goodsId) {
         return stockKeyPrefix + goodsId;
     }
 
-    private String userCountKey(Long goodsId) {
-        return userCountKeyPrefix + goodsId;
+    private String userCountBucketKey(Long goodsId, Long userId) {
+        return userCountBucketKey(goodsId, Math.floorMod(userId, USER_COUNT_BUCKETS));
+    }
+
+    private String userCountBucketKey(Long goodsId, int bucket) {
+        return userCountKeyPrefix + goodsId + ":" + bucket;
     }
 
     private String userLimitKey(Long goodsId) {

@@ -4,9 +4,6 @@ spring:
     driver-class-name: org.h2.Driver
     username: sa
     password:
-  jpa:
-    hibernate:
-      ddl-auto: create-drop
   data:
     redis:
       host: localhost
@@ -15,10 +12,6 @@ spring:
     listener:
       simple:
         auto-startup: false
-  cloud:
-    nacos:
-      discovery:
-        enabled: false
   threads:
     virtual:
       enabled: ${SPRING_THREADS_VIRTUAL_ENABLED:true}

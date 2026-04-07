@@ -12,7 +12,7 @@ import static org.mockito.Mockito.when;
 
 import com.ldfd.seckill.domain.SeckillGoods;
 import com.ldfd.seckill.dto.SeckillSubmitResult;
-import com.ldfd.seckill.repository.SeckillGoodsRepository;
+import com.ldfd.seckill.mapper.SeckillGoodsMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,16 +27,16 @@ class SeckillServiceTest {
     private RedisStockService redisStockService;
 
     @Mock
-    private OutboxPublisherService outboxPublisherService;
+    private OrderMessagePublisherService orderMessagePublisherService;
 
     @Mock
-    private SeckillGoodsRepository seckillGoodsRepository;
+    private SeckillGoodsMapper seckillGoodsMapper;
 
     private SeckillService seckillService;
 
     @BeforeEach
     void setUp() {
-        seckillService = new SeckillService(redisStockService, outboxPublisherService, seckillGoodsRepository);
+        seckillService = new SeckillService(redisStockService, orderMessagePublisherService, seckillGoodsMapper);
     }
 
     @Test
@@ -47,12 +47,12 @@ class SeckillServiceTest {
 
         assertFalse(result.accepted());
         assertEquals("exceed per-user limit", result.message());
-        verify(outboxPublisherService, never()).publish(any());
+        verify(orderMessagePublisherService, never()).publish(any());
     }
 
     @Test
     void initGoodsStockShouldRejectExistingGoodsActivity() {
-        when(seckillGoodsRepository.existsById(1001L)).thenReturn(true);
+        when(seckillGoodsMapper.existsById(1001L)).thenReturn(true);
 
         IllegalStateException ex = assertThrows(
                 IllegalStateException.class,
@@ -60,17 +60,17 @@ class SeckillServiceTest {
 
         assertEquals("activity already initialized; only new goodsId can use new limit", ex.getMessage());
         verify(redisStockService, never()).initStock(anyLong(), anyInt(), anyInt());
-        verify(seckillGoodsRepository, never()).save(any());
+        verify(seckillGoodsMapper, never()).insert(any());
     }
 
     @Test
     void initGoodsStockShouldPersistLimitForNewActivity() {
-        when(seckillGoodsRepository.existsById(1001L)).thenReturn(false);
+        when(seckillGoodsMapper.existsById(1001L)).thenReturn(false);
 
         seckillService.initGoodsStock(1001L, 20, 3);
 
         ArgumentCaptor<SeckillGoods> goodsCaptor = ArgumentCaptor.forClass(SeckillGoods.class);
-        verify(seckillGoodsRepository).save(goodsCaptor.capture());
+        verify(seckillGoodsMapper).insert(goodsCaptor.capture());
         SeckillGoods saved = goodsCaptor.getValue();
         assertEquals(1001L, saved.getGoodsId());
         assertEquals(20, saved.getStock());
@@ -78,6 +78,3 @@ class SeckillServiceTest {
         verify(redisStockService).initStock(1001L, 20, 3);
     }
 }
-
-
-

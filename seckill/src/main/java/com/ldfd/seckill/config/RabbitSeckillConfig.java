@@ -1,5 +1,6 @@
 package com.ldfd.seckill.config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
@@ -12,6 +13,7 @@ import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+@Slf4j
 @Configuration
 public class RabbitSeckillConfig {
 
@@ -66,7 +68,22 @@ public class RabbitSeckillConfig {
         RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory);
         rabbitTemplate.setMandatory(true);
         rabbitTemplate.setMessageConverter(messageConverter);
+        rabbitTemplate.setConfirmCallback((correlation, ack, cause) -> {
+            if (correlation != null && correlation.getId() != null) {
+                String requestId = correlation.getId();
+                if (!ack) {
+                    log.error("message delivery failed to broker requestId={} cause={}", requestId, cause);
+                }
+            }
+        });
+        rabbitTemplate.setReturnsCallback(returned -> {
+            log.error("message returned by broker requestId={} replyCode={} replyText={} exchange={} routingKey={}",
+                    returned.getMessage().getMessageProperties().getMessageId(),
+                    returned.getReplyCode(),
+                    returned.getReplyText(),
+                    returned.getExchange(),
+                    returned.getRoutingKey());
+        });
         return rabbitTemplate;
     }
 }
-

@@ -3,7 +3,7 @@ package com.ldfd.seckill.service;
 import com.ldfd.seckill.domain.SeckillGoods;
 import com.ldfd.seckill.dto.SeckillOrderMessage;
 import com.ldfd.seckill.dto.SeckillSubmitResult;
-import com.ldfd.seckill.repository.SeckillGoodsRepository;
+import com.ldfd.seckill.mapper.SeckillGoodsMapper;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -13,16 +13,16 @@ import org.springframework.transaction.annotation.Transactional;
 public class SeckillService {
 
     private final RedisStockService redisStockService;
-    private final OutboxPublisherService outboxPublisherService;
-    private final SeckillGoodsRepository seckillGoodsRepository;
+    private final OrderMessagePublisherService orderMessagePublisherService;
+    private final SeckillGoodsMapper seckillGoodsMapper;
 
     public SeckillService(
             RedisStockService redisStockService,
-            OutboxPublisherService outboxPublisherService,
-            SeckillGoodsRepository seckillGoodsRepository) {
+            OrderMessagePublisherService orderMessagePublisherService,
+            SeckillGoodsMapper seckillGoodsMapper) {
         this.redisStockService = redisStockService;
-        this.outboxPublisherService = outboxPublisherService;
-        this.seckillGoodsRepository = seckillGoodsRepository;
+        this.orderMessagePublisherService = orderMessagePublisherService;
+        this.seckillGoodsMapper = seckillGoodsMapper;
     }
 
     public SeckillSubmitResult submit(Long goodsId, Long userId) {
@@ -40,7 +40,7 @@ public class SeckillService {
         String requestId = UUID.randomUUID().toString().replace("-", "");
         SeckillOrderMessage message = new SeckillOrderMessage(requestId, userId, goodsId, LocalDateTime.now());
         try {
-            outboxPublisherService.publish(message);
+            orderMessagePublisherService.publish(message);
             return new SeckillSubmitResult(true, requestId, "accepted");
         } catch (RuntimeException ex) {
             redisStockService.rollbackReservation(goodsId, userId);
@@ -50,14 +50,14 @@ public class SeckillService {
 
     @Transactional
     public void initGoodsStock(Long goodsId, Integer stock, Integer perUserLimit) {
-        if (seckillGoodsRepository.existsById(goodsId)) {
+        if (seckillGoodsMapper.existsById(goodsId)) {
             throw new IllegalStateException("activity already initialized; only new goodsId can use new limit");
         }
         SeckillGoods goods = new SeckillGoods();
         goods.setGoodsId(goodsId);
         goods.setStock(stock);
         goods.setPerUserLimit(perUserLimit);
-        seckillGoodsRepository.save(goods);
+        seckillGoodsMapper.insert(goods);
         redisStockService.initStock(goodsId, stock, perUserLimit);
     }
 }

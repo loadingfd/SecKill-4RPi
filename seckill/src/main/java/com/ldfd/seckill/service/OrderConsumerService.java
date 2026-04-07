@@ -2,8 +2,8 @@ package com.ldfd.seckill.service;
 
 import com.ldfd.seckill.domain.SeckillOrder;
 import com.ldfd.seckill.dto.SeckillOrderMessage;
-import com.ldfd.seckill.repository.SeckillGoodsMapper;
-import com.ldfd.seckill.repository.SeckillOrderMapper;
+import com.ldfd.seckill.mapper.SeckillGoodsMapper;
+import com.ldfd.seckill.mapper.SeckillOrderMapper;
 import com.rabbitmq.client.Channel;
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -14,6 +14,8 @@ import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Slf4j
 @Service
@@ -45,16 +47,17 @@ public class OrderConsumerService {
             return;
         }
 
+        // Keep broker ack/reject aligned with DB transaction result.
+        registerTransactionCallbacks(message.requestId(), channel, tag);
+
         try {
             if (seckillOrderMapper.countByRequestId(message.requestId()) > 0) {
-                channel.basicAck(tag, false);
                 return;
             }
 
             int updated = seckillGoodsMapper.deductOne(message.goodsId());
             if (updated == 0) {
                 redisStockService.rollbackReservation(message.goodsId(), message.userId());
-                channel.basicAck(tag, false);
                 return;
             }
 
@@ -65,12 +68,34 @@ public class OrderConsumerService {
             order.setStatus("CREATED");
             order.setCreatedAt(LocalDateTime.now());
             seckillOrderMapper.insert(order);
-            channel.basicAck(tag, false);
         } catch (Exception ex) {
-            redisStockService.clearOrderConsuming(message.requestId());
             log.error("consume order message failed requestId={} error={}", message.requestId(), ex.getMessage(), ex);
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
-            channel.basicReject(tag, false);
         }
+    }
+
+    private void registerTransactionCallbacks(String requestId, Channel channel, long tag) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    channel.basicAck(tag, false);
+                } catch (IOException ex) {
+                    log.error("ack order message failed requestId={} error={}", requestId, ex.getMessage(), ex);
+                }
+            }
+
+            @Override
+            public void afterCompletion(int status) {
+                if (status != TransactionSynchronization.STATUS_COMMITTED) {
+                    redisStockService.clearOrderConsuming(requestId);
+                    try {
+                        channel.basicReject(tag, false);
+                    } catch (IOException ex) {
+                        log.error("reject order message failed requestId={} error={}", requestId, ex.getMessage(), ex);
+                    }
+                }
+            }
+        });
     }
 }

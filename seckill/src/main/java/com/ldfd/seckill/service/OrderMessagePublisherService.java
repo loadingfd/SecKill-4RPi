@@ -2,6 +2,7 @@ package com.ldfd.seckill.service;
 
 import com.ldfd.seckill.config.RabbitSeckillConfig;
 import com.ldfd.seckill.dto.SeckillOrderMessage;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.AmqpException;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
@@ -13,11 +14,11 @@ import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-public class OutboxPublisherService {
+public class OrderMessagePublisherService {
 
     private final RabbitTemplate rabbitTemplate;
 
-    public OutboxPublisherService(RabbitTemplate rabbitTemplate) {
+    public OrderMessagePublisherService(RabbitTemplate rabbitTemplate) {
         this.rabbitTemplate = rabbitTemplate;
     }
 
@@ -44,3 +45,4 @@ public class OutboxPublisherService {
         throw ex;
     }
 }
+

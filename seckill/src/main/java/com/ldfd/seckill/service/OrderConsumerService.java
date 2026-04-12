@@ -36,7 +36,7 @@ public class OrderConsumerService {
 
     @RabbitListener(
             queues = "seckill.order.queue",
-            concurrency = "${seckill.consumer.order-concurrency:8-16}"
+            concurrency = "${seckill.consumer.order-concurrency:2-8}"
     )
     @Transactional
     public void consume(SeckillOrderMessage message, Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long tag)
@@ -90,9 +90,11 @@ public class OrderConsumerService {
                 if (status != TransactionSynchronization.STATUS_COMMITTED) {
                     redisStockService.clearOrderConsuming(requestId);
                     try {
-                        channel.basicReject(tag, false);
+                        // requeue=false so broker routes the message to DLQ via queue dead-letter settings
+                        channel.basicNack(tag, false, false);
                     } catch (IOException ex) {
-                        log.error("reject order message failed requestId={} error={}", requestId, ex.getMessage(), ex);
+                        log.error("nack order message to dlq failed requestId={} tag={} error={}",
+                                requestId, tag, ex.getMessage(), ex);
                     }
                 }
             }
